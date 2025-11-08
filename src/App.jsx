@@ -1,5 +1,10 @@
-import React from "react";
-import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+} from "react-router-dom";
 import Header from "./components/Header";
 import HomePage from "./components/HomePage";
 import SignUpForm from "./components/SignUpForm";
@@ -7,10 +12,8 @@ import LoginForm from "./components/LoginForm";
 import AddItemForm from "./components/AddItemForm";
 import UserDashboard from "./components/UserDashboard";
 import UserProfile from "./components/UserProfile";
-import { useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
-// یک کامپوننت کوچک برای اتصال HomePage به navigate
 function HomeWithNavigation() {
   const navigate = useNavigate();
   return (
@@ -22,51 +25,60 @@ function HomeWithNavigation() {
 }
 
 function App() {
-  useEffect(() => {
-  async function testConnection() {
-    const { data, error } = await supabase.from('users').select('*').limit(1);
-    if (error) {
-      console.error('❌ خطا در اتصال به Supabase:', error);
-    } else {
-      console.log('✅ اتصال موفق! داده نمونه:', data);
-    }
-  }
+  const [user, setUser] = useState(null);
 
-  testConnection();
-}, []);
+  // 🧠 گرفتن کاربر فعلی از Supabase
+  useEffect(() => {
+    const getUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (data?.user) {
+        console.log("✅ کاربر پیدا شد:", data.user);
+        setUser(data.user);
+      } else {
+        console.log("⚠️ هیچ کاربری پیدا نشد:", error);
+      }
+    };
+
+    getUser();
+
+    // گوش دادن به تغییر وضعیت لاگین / خروج
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => subscription.subscription.unsubscribe();
+  }, []);
+
+  // فقط برای تست:
+  console.log("🧠 User object in App:", user);
+
   return (
     <Router>
       <div dir="rtl" className="font-sans bg-green-50 min-h-screen text-right">
-        {/* ✅ هدر کلی سایت */}
         <Header />
 
-        {/* ✅ مسیرهای اصلی */}
         <Routes>
-          {/* صفحه اصلی */}
           <Route path="/" element={<HomeWithNavigation />} />
-
-          {/* عضویت و ورود */}
           <Route path="/signup" element={<SignUpForm />} />
           <Route path="/login" element={<LoginForm />} />
-
-          {/* افزودن کالا */}
-          <Route path="/add-item" element={<AddItemForm />} />
-
-          {/* داشبورد */}
           <Route path="/dashboard" element={<UserDashboard />} />
-
-          {/* مسیرهای داخلی داشبورد */}
           <Route path="/dashboard/profile" element={<UserProfile />} />
-          <Route
-            path="/dashboard/requests"
-            element={<p className="p-10 text-green-900 text-xl">درخواست‌های شما</p>}
-          />
+
+          {/* 🟢 پاس دادن user به AddItemForm */}
           <Route
             path="/dashboard/items"
-            element={<p className="p-10 text-green-900 text-xl">کالاهای شما</p>}
+            element={<AddItemForm user={user} />}
           />
 
-          {/* صفحه 404 */}
+          <Route
+            path="/dashboard/requests"
+            element={
+              <p className="p-10 text-green-900 text-xl">درخواست‌های شما</p>
+            }
+          />
+
           <Route
             path="*"
             element={
